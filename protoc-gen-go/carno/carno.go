@@ -163,7 +163,7 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	// NewClient factory.
 	g.P("func New", servName, "Client (opts *options.Options) (", servName, "Client, error) {")
-	g.P(`c, err := client.NewClient(opts`, ",&options.Options{Peer:", strconv.Quote(file.GetPackage()), "})")
+	g.P(`c, err := client.NewClient(opts,`, strconv.Quote(file.GetPackage()), ")")
 	g.P("if err != nil {return nil, err}")
 	g.P("rv := &", unexport(servName), "Client{Client: c}")
 
