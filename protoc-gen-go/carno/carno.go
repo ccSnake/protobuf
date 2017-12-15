@@ -310,7 +310,7 @@ func (g *carno) generateServerPackage(pkg string, services []*pb.ServiceDescript
 	g.P("")
 
 	g.P("func New", camelCasePkgName, "(opts *options.Options) (*", camelCasePkgName, ",error){")
-	g.P("c, err := client.NewClient(opts", ",&options.Options{Peer:", strconv.Quote(pkg), "})")
+	g.P("c, err := client.NewClient(opts,", strconv.Quote(pkg), ")")
 	g.P("if err!=nil{")
 	g.P("return nil,err")
 	g.P("}")
