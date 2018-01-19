@@ -98,8 +98,6 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P("// is compatible with the carno package it is being compiled against.")
 	g.P()
 
-	g.P(`const ServerName=`, strconv.Quote(file.GetPackage()))
-
 	for i, service := range file.FileDescriptorProto.Service {
 		g.generateService(file, service, i)
 	}
