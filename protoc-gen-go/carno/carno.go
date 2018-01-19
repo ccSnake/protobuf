@@ -114,10 +114,10 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 	}
 
 	g.P("import (")
-	g.P(strconv.Quote("carno/client"))
-	g.P(strconv.Quote("carno/server"))
-	g.P(strconv.Quote("carno/options"))
-	g.P(strconv.Quote("carno/common"))
+	g.P(strconv.Quote("gitlab.rcnice.com/framework/go/carno/client"))
+	g.P(strconv.Quote("gitlab.rcnice.com/framework/go/carno/server"))
+	g.P(strconv.Quote("gitlab.rcnice.com/framework/go/carno/options"))
+	g.P(strconv.Quote("gitlab.rcnice.com/framework/go/carno/common"))
 	g.P(strconv.Quote("context"))
 	g.P(")")
 	g.P()
