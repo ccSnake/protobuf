@@ -106,6 +106,7 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 
 	if g.hasServerStruct[file.GetPackage()] == false {
 		g.generateServerPackage(file.GetPackage(), file.FileDescriptorProto.Service)
+		g.hasServerStruct[file.GetPackage()] = true
 	}
 }
 
