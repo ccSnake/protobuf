@@ -56,7 +56,8 @@ func init() {
 // carno is an implementation of the Go protocol buffer compiler's
 // plugin architecture.  It generates bindings for carno support.
 type carno struct {
-	gen *generator.Generator
+	gen             *generator.Generator
+	hasServerStruct map[string]bool
 }
 
 // Name returns the name of this plugin, "carno".
@@ -67,6 +68,7 @@ func (g *carno) Name() string {
 // Init initializes the plugin.
 func (g *carno) Init(gen *generator.Generator) {
 	g.gen = gen
+	g.hasServerStruct = make(map[string]bool)
 }
 
 // Given a type name defined in a .proto, return its object.
@@ -102,7 +104,9 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 		g.generateService(file, service, i)
 	}
 
-	g.generateServerPackage(file.GetPackage(), file.FileDescriptorProto.Service)
+	if g.hasServerStruct[file.GetPackage()] == false {
+		g.generateServerPackage(file.GetPackage(), file.FileDescriptorProto.Service)
+	}
 }
 
 // GenerateImports generates the import declaration for this file.
@@ -124,7 +128,7 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 
 // reservedClientName records whether a client name is reserved on the client side.
 var reservedClientName = map[string]bool{
-// TODO: do we need any in carno?
+	// TODO: do we need any in carno?
 }
 
 func unexport(s string) string { return strings.ToLower(s[:1]) + s[1:] }
