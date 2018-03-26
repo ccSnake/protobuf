@@ -100,6 +100,13 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P("// is compatible with the carno package it is being compiled against.")
 	g.P()
 
+	// init default server
+	camelCasePkgName := generator.CamelCase(strings.Replace(file.GetPackage(), ".", "_", -1))
+	g.P("func InitServer(){")
+	g.P(`server.Init(server.Name(`,strconv.Quote(camelCasePkgName),`),server.Wrapper(tracing.TraceDispatcher),server.Wrapper(metric.WithMetric))`)
+	g.P("}")
+
+
 	for i, service := range file.FileDescriptorProto.Service {
 		g.generateService(file, service, i)
 	}
@@ -117,10 +124,11 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 	}
 
 	g.P("import (")
-	g.P(strconv.Quote("gitlab.afander.com/framework/go/carno/client"))
-	g.P(strconv.Quote("gitlab.afander.com/framework/go/carno/server"))
-	g.P(strconv.Quote("gitlab.afander.com/framework/go/carno/options"))
-	g.P(strconv.Quote("gitlab.afander.com/framework/go/carno/common"))
+	g.P(strconv.Quote("github.com/ccsnake/carno/client"))
+	g.P(strconv.Quote("github.com/ccsnake/carno/tracing"))
+	g.P(strconv.Quote("github.com/ccsnake/carno/server"))
+	g.P(strconv.Quote("github.com/ccsnake/carno/metric"))
+	g.P(strconv.Quote("github.com/ccsnake/carno/mux"))
 	g.P(strconv.Quote("context"))
 	g.P(")")
 	g.P()
@@ -160,17 +168,17 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	// Client structure.
 	g.P("type ", unexport(servName), "Client struct {")
-	g.P("*client.Client")
+	g.P("client.Client")
 	g.P("}")
 	g.P()
 
 	// NewClient factory.
-	g.P("func New", servName, "Client (opts *options.Options) (", servName, "Client, error) {")
-	g.P(`c, err := client.NewClient(opts,`, strconv.Quote(file.GetPackage()), ")")
-	g.P("if err != nil {return nil, err}")
+	g.P("func New", servName, "Client (opts ...client.Option) (", servName, "Client, error) {")
+	g.P(`	opts = append(opts,client.PeerName("`,servName,`"), client.Wrapper(tracing.TraceClient))`)
+	g.P(`	c := client.New(opts...)`)
 	g.P("rv := &", unexport(servName), "Client{Client: c}")
 
-	g.P("return rv, nil")
+	g.P("return rv, c.Start()")
 	g.P("}")
 	g.P()
 
@@ -197,14 +205,25 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.generateServerSetting(file)
 	g.P()
 	// Server registration.
-	g.P("func Register", servName, "Server(s server.Server, srv ", serverType, ") {")
-	g.P("s.RegisterService(&", serviceDescVar, `, srv)`)
+	//g.P("func Register", servName, "Server(s server.Server, srv ", serverType, ") {")
+	//g.P("s.RegisterService(&", serviceDescVar, `, srv)`)
+	//
+	//g.P("}")
+	//g.P()
 
+	g.P("func Register", servName, "Server(srv ", serverType, ") {")
+	g.P("server.Router().RegisterService(&", serviceDescVar, `, srv)`)
 	g.P("}")
 	g.P()
 
+
+
+
+
+
 	// Service descriptor.
-	g.P("var ", serviceDescVar, " = ", "common.ServiceDescribe {")
+
+	g.P("var ", serviceDescVar, " = ", "mux.ServiceDesc {")
 	g.P("ServiceName: ", strconv.Quote(origServName), ",")
 	g.P("Methods: []", "string{")
 	for _, method := range service.Method {
@@ -216,6 +235,9 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.P("},")
 	g.P("}")
 	g.P()
+
+
+
 }
 
 // generateClientSignature returns the client-side signature for a method.
@@ -233,7 +255,7 @@ func (g *carno) generateClientSignature(servName string, method *pb.MethodDescri
 	if method.GetServerStreaming() || method.GetClientStreaming() {
 		respName = servName + "_" + generator.CamelCase(origMethName) + "Client"
 	}
-	return fmt.Sprintf("%s(ctx context.Context%s, opts ...options.Option) (%s, error)", methName, reqArg, respName)
+	return fmt.Sprintf("%s(ctx context.Context%s, opts ...client.CallOption) (%s, error)", methName, reqArg, respName)
 
 }
 
@@ -243,23 +265,11 @@ func (g *carno) generateClientMethod(pkgName, servName, fullServName, serviceDes
 	outType := g.typeName(method.GetOutputType())
 
 	g.P("func (c *", unexport(servName), "Client) ", g.generateClientSignature(servName, method), "{")
-	g.P("inBytes, err := proto.Marshal(in)")
-	g.P("if err != nil{")
-	g.P("return nil, err")
-	g.P("}")
+	g.P("out := new(", outType, ")")
 
 	// invoke
-	g.P("resp, err := c.Client.Invoke(ctx, ", strconv.Quote(servName), ", ", strconv.Quote(method.GetName()), ", opts, inBytes)")
-	g.P("if err!=nil{")
-	g.P("return nil,err")
-	g.P("}")
-
-	// Unmarshal resp
-	g.P("out := new(", outType, ")")
-	g.P("if err := proto.Unmarshal(resp, out); err != nil {")
-	g.P("return nil, err")
-	g.P("}")
-	g.P("return out, nil")
+	g.P(`err:=c.Client.Call(ctx, `,strconv.Quote(servName),",",strconv.Quote(method.GetName()),`, in, out, opts...)`)
+	g.P("return out, err")
 	g.P("}")
 	g.P()
 	return
@@ -312,9 +322,10 @@ func (g *carno) generateServerPackage(pkg string, services []*pb.ServiceDescript
 	g.P("}")
 	g.P("")
 
-	g.P("func New", camelCasePkgName, "(opts *options.Options) (*", camelCasePkgName, ",error){")
-	g.P("c, err := client.NewClient(opts,", strconv.Quote(pkg), ")")
-	g.P("if err!=nil{")
+	g.P("func New", camelCasePkgName, "(opts ...client.Option) (*", camelCasePkgName, ",error){")
+	g.P(`	opts = append(opts,client.PeerName(`,strconv.Quote(pkg),`), client.Wrapper(tracing.TraceClient))`)
+	g.P(`	c := client.New(opts...)`)
+	g.P("if err:=c.Start();err!=nil{")
 	g.P("return nil,err")
 	g.P("}")
 
