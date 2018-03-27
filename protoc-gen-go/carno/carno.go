@@ -101,9 +101,8 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P()
 
 	// init default server
-	camelCasePkgName := generator.CamelCase(strings.Replace(file.GetPackage(), ".", "_", -1))
 	g.P("func InitServer(){")
-	g.P(`server.Init(server.Name(`,strconv.Quote(camelCasePkgName),`),server.Wrapper(tracing.TraceDispatcher),server.Wrapper(metric.WithMetric))`)
+	g.P(`server.Init(server.Name(`,strconv.Quote(file.GetPackage()),`),server.Wrapper(tracing.TraceDispatcher),server.Wrapper(metric.WithMetric))`)
 	g.P("}")
 
 
