@@ -56,8 +56,8 @@ func init() {
 // carno is an implementation of the Go protocol buffer compiler's
 // plugin architecture.  It generates bindings for carno support.
 type carno struct {
-	gen             *generator.Generator
-	hasServerStruct map[string]bool
+	gen            *generator.Generator
+	serverInitOnce map[string]bool
 }
 
 // Name returns the name of this plugin, "carno".
@@ -68,7 +68,7 @@ func (g *carno) Name() string {
 // Init initializes the plugin.
 func (g *carno) Init(gen *generator.Generator) {
 	g.gen = gen
-	g.hasServerStruct = make(map[string]bool)
+	g.serverInitOnce = make(map[string]bool)
 }
 
 // Given a type name defined in a .proto, return its object.
@@ -100,19 +100,16 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P("// is compatible with the carno package it is being compiled against.")
 	g.P()
 
-	// init default server
-	g.P("func InitCarno(){")
-	g.P("carno.Init(",strconv.Quote(file.GetPackage()),")")
-	g.P("}")
 
 
 	for i, service := range file.FileDescriptorProto.Service {
 		g.generateService(file, service, i)
 	}
 
-	if g.hasServerStruct[file.GetPackage()] == false {
+	if g.serverInitOnce[file.GetPackage()] == false {
+		g.P("var ServerName=",strconv.Quote(file.GetPackage()))
 		g.generateServerPackage(file.GetPackage(), file.FileDescriptorProto.Service)
-		g.hasServerStruct[file.GetPackage()] = true
+		g.serverInitOnce[file.GetPackage()] = true
 	}
 }
 
@@ -126,7 +123,6 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 	g.P(strconv.Quote("github.com/ccsnake/carno/client"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/tracing"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/server"))
-	g.P(strconv.Quote("github.com/ccsnake/carno/metric"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/mux"))
 	g.P(strconv.Quote("context"))
 	g.P(")")
