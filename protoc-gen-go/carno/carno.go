@@ -101,8 +101,8 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P()
 
 	// init default server
-	g.P("func InitServer(){")
-	g.P(`server.Init(server.Name(`,strconv.Quote(file.GetPackage()),`),server.Wrapper(tracing.TraceDispatcher),server.Wrapper(metric.WithMetric))`)
+	g.P("func InitCarno(){")
+	g.P("carno.Init(",strconv.Quote(file.GetPackage()),")")
 	g.P("}")
 
 
