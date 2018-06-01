@@ -100,14 +100,12 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P("// is compatible with the carno package it is being compiled against.")
 	g.P()
 
-
-
 	for i, service := range file.FileDescriptorProto.Service {
 		g.generateService(file, service, i)
 	}
 
 	if g.serverInitOnce[file.GetPackage()] == false {
-		g.P("var ServerName=",strconv.Quote(file.GetPackage()))
+		g.P("var ServerName=", strconv.Quote(file.GetPackage()))
 		g.generateServerPackage(file.GetPackage(), file.FileDescriptorProto.Service)
 		g.serverInitOnce[file.GetPackage()] = true
 	}
@@ -120,10 +118,11 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 	}
 
 	g.P("import (")
+	g.P(strconv.Quote("github.com/ccsnake/carno"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/client"))
-	g.P(strconv.Quote("github.com/ccsnake/carno/tracing"))
-	g.P(strconv.Quote("github.com/ccsnake/carno/server"))
+	g.P(strconv.Quote("github.com/ccsnake/carno/cluster"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/mux"))
+
 	g.P(strconv.Quote("context"))
 	g.P(")")
 	g.P()
@@ -169,8 +168,11 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	// NewClient factory.
 	g.P("func New", servName, "Client (opts ...client.Option) (", servName, "Client, error) {")
-	g.P(`	opts = append(opts,client.PeerName("`,servName,`"), client.Wrapper(tracing.TraceClient))`)
-	g.P(`	c := client.New(opts...)`)
+	g.P(`	c,err := cluster.NewClient(`, servName, `,opts...)`)
+	g.P("if err!=nil{")
+	g.P("return nil,err")
+	g.P("}")
+
 	g.P("rv := &", unexport(servName), "Client{Client: c}")
 
 	g.P("return rv, c.Start()")
@@ -199,22 +201,12 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	g.generateServerSetting(file)
 	g.P()
-	// Server registration.
-	//g.P("func Register", servName, "Server(s server.Server, srv ", serverType, ") {")
-	//g.P("s.RegisterService(&", serviceDescVar, `, srv)`)
-	//
-	//g.P("}")
-	//g.P()
+
 
 	g.P("func Register", servName, "Server(srv ", serverType, ") {")
-	g.P("server.Router().RegisterService(&", serviceDescVar, `, srv)`)
+	g.P("carno.HandleService(&", serviceDescVar, `, srv)`)
 	g.P("}")
 	g.P()
-
-
-
-
-
 
 	// Service descriptor.
 
@@ -230,8 +222,6 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.P("},")
 	g.P("}")
 	g.P()
-
-
 
 }
 
@@ -263,7 +253,7 @@ func (g *carno) generateClientMethod(pkgName, servName, fullServName, serviceDes
 	g.P("out := new(", outType, ")")
 
 	// invoke
-	g.P(`err:=c.Client.Call(ctx, `,strconv.Quote(servName),",",strconv.Quote(method.GetName()),`, in, out, opts...)`)
+	g.P(`err:=c.Client.Call(ctx, `, strconv.Quote(servName), ",", strconv.Quote(method.GetName()), `, in, out, opts...)`)
 	g.P("return out, err")
 	g.P("}")
 	g.P()
@@ -318,8 +308,11 @@ func (g *carno) generateServerPackage(pkg string, services []*pb.ServiceDescript
 	g.P("")
 
 	g.P("func New", camelCasePkgName, "(opts ...client.Option) (*", camelCasePkgName, ",error){")
-	g.P(`	opts = append(opts,client.PeerName(`,strconv.Quote(pkg),`), client.Wrapper(tracing.TraceClient))`)
-	g.P(`	c := client.New(opts...)`)
+	g.P(`	c,err := cluster.NewClient(strconv.Quote(pkg),opts...)`)
+	g.P("if err!=nil{")
+	g.P("return nil,err")
+	g.P("}")
+
 	g.P("if err:=c.Start();err!=nil{")
 	g.P("return nil,err")
 	g.P("}")
