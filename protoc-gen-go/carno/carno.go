@@ -168,7 +168,7 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	// NewClient factory.
 	g.P("func New", servName, "Client (opts ...client.Option) (", servName, "Client, error) {")
-	g.P(`	c,err := cluster.NewClient(`, servName, `,opts...)`)
+	g.P(`	c,err := cluster.NewClient(`, strconv.Quote(servName), `,opts...)`)
 	g.P("if err!=nil{")
 	g.P("return nil,err")
 	g.P("}")
@@ -201,7 +201,6 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	g.generateServerSetting(file)
 	g.P()
-
 
 	g.P("func Register", servName, "Server(srv ", serverType, ") {")
 	g.P("carno.HandleService(&", serviceDescVar, `, srv)`)
@@ -308,7 +307,7 @@ func (g *carno) generateServerPackage(pkg string, services []*pb.ServiceDescript
 	g.P("")
 
 	g.P("func New", camelCasePkgName, "(opts ...client.Option) (*", camelCasePkgName, ",error){")
-	g.P(`	c,err := cluster.NewClient(strconv.Quote(pkg),opts...)`)
+	g.P(`	c,err := cluster.NewClient(`, strconv.Quote(pkg), `,opts...)`)
 	g.P("if err!=nil{")
 	g.P("return nil,err")
 	g.P("}")
