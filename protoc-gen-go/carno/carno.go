@@ -120,7 +120,7 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 	g.P("import (")
 	g.P(strconv.Quote("github.com/ccsnake/carno"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/client"))
-	g.P(strconv.Quote("github.com/ccsnake/carno/cluster"))
+	//g.P(strconv.Quote("github.com/ccsnake/carno/cluster"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/mux"))
 
 	g.P(strconv.Quote("context"))
