@@ -168,7 +168,7 @@ func (g *carno) generateService(file *generator.FileDescriptor, service *pb.Serv
 
 	// NewClient factory.
 	g.P("func New", servName, "Client (opts ...client.Option) (", servName, "Client, error) {")
-	g.P(`	c,err := carno.NewClient(`, strconv.Quote(servName), `,opts...)`)
+	g.P(`	c,err := carno.NewClient(`, strconv.Quote(file.GetPackage()), `,opts...)`)
 	g.P("if err!=nil{")
 	g.P("return nil,err")
 	g.P("}")
