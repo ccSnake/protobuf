@@ -57,7 +57,6 @@ func init() {
 // plugin architecture.  It generates bindings for carno support.
 type carno struct {
 	gen            *generator.Generator
-	serverInitOnce map[string]bool
 }
 
 // Name returns the name of this plugin, "carno".
@@ -68,7 +67,6 @@ func (g *carno) Name() string {
 // Init initializes the plugin.
 func (g *carno) Init(gen *generator.Generator) {
 	g.gen = gen
-	g.serverInitOnce = make(map[string]bool)
 }
 
 // Given a type name defined in a .proto, return its object.
@@ -103,12 +101,6 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	for i, service := range file.FileDescriptorProto.Service {
 		g.generateService(file, service, i)
 	}
-
-	if g.serverInitOnce[file.GetPackage()] == false {
-		g.P("var ServerName=", strconv.Quote(file.GetPackage()))
-		g.generateServerPackage(file.GetPackage(), file.FileDescriptorProto.Service)
-		g.serverInitOnce[file.GetPackage()] = true
-	}
 }
 
 // GenerateImports generates the import declaration for this file.
@@ -120,9 +112,7 @@ func (g *carno) GenerateImports(file *generator.FileDescriptor) {
 	g.P("import (")
 	g.P(strconv.Quote("github.com/ccsnake/carno"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/client"))
-	//g.P(strconv.Quote("github.com/ccsnake/carno/cluster"))
 	g.P(strconv.Quote("github.com/ccsnake/carno/mux"))
-
 	g.P(strconv.Quote("context"))
 	g.P(")")
 	g.P()
@@ -244,8 +234,6 @@ func (g *carno) generateClientSignature(servName string, method *pb.MethodDescri
 }
 
 func (g *carno) generateClientMethod(pkgName, servName, fullServName, serviceDescVar string, method *pb.MethodDescriptorProto, descExpr string) {
-	// methName := generator.CamelCase(method.GetName())
-	// inType := g.typeName(method.GetInputType())
 	outType := g.typeName(method.GetOutputType())
 
 	g.P("func (c *", unexport(servName), "Client) ", g.generateClientSignature(servName, method), "{")
@@ -280,47 +268,4 @@ func (g *carno) generateServerSetting(file *generator.FileDescriptor) {
 	if pkg == "" {
 		panic("empty package")
 	}
-}
-
-// type Quanmin_core_demo struct {
-// 	DemoClient
-// 	UserClient
-// }
-
-// func NewQuanmin_core_demo(addr string) (*Quanmin_core_demo, error) {
-// 	c, err := carno.NewClient(carno.RegistryAddr(addr), carno.ServerName("quanmin.core.demo"))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &Quanmin_core_demo{
-// 		DemoClient: &demoClient{Client: c},
-// 		UserClient: &userClient{Client: c},
-// 	}, nil
-// }
-func (g *carno) generateServerPackage(pkg string, services []*pb.ServiceDescriptorProto) {
-	camelCasePkgName := generator.CamelCase(strings.Replace(pkg, ".", "_", -1))
-	g.P("type ", camelCasePkgName, " struct{")
-	for _, service := range services {
-		g.P(generator.CamelCase(service.GetName()), "Client")
-	}
-	g.P("}")
-	g.P("")
-
-	g.P("func New", camelCasePkgName, "(opts ...client.Option) (*", camelCasePkgName, ",error){")
-	g.P(`	c,err := carno.NewClient(`, strconv.Quote(pkg), `,opts...)`)
-	g.P("if err!=nil{")
-	g.P("return nil,err")
-	g.P("}")
-
-	g.P("if err:=c.Start();err!=nil{")
-	g.P("return nil,err")
-	g.P("}")
-
-	g.P("return &", camelCasePkgName, "{")
-	for _, service := range services {
-		g.P(generator.CamelCase(service.GetName()), "Client: &", unexport(service.GetName()), "Client{Client:c},")
-	}
-	g.P("},nil")
-	g.P("}")
-	g.P("")
 }
