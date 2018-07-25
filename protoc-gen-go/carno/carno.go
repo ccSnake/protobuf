@@ -50,13 +50,18 @@ import (
 const generatedCodeVersion = 4
 
 func init() {
-	generator.RegisterPlugin(new(carno))
+	generator.RegisterPlugin(newCarno())
 }
 
 // carno is an implementation of the Go protocol buffer compiler's
 // plugin architecture.  It generates bindings for carno support.
 type carno struct {
-	gen            *generator.Generator
+	gen *generator.Generator
+}
+
+func newCarno() *carno {
+	return &carno{
+	}
 }
 
 // Name returns the name of this plugin, "carno".
@@ -67,6 +72,17 @@ func (g *carno) Name() string {
 // Init initializes the plugin.
 func (g *carno) Init(gen *generator.Generator) {
 	g.gen = gen
+
+	pkgService := make(map[string][]string)
+	for _, file := range gen.Request.ProtoFile {
+		for _, service := range file.Service {
+			pkgService[file.GetPackage()] = append(pkgService[file.GetPackage()], service.GetName())
+		}
+	}
+
+	for pkg, services := range pkgService {
+		g.generateServerPackage(pkg, services...)
+	}
 }
 
 // Given a type name defined in a .proto, return its object.
@@ -268,4 +284,32 @@ func (g *carno) generateServerSetting(file *generator.FileDescriptor) {
 	if pkg == "" {
 		panic("empty package")
 	}
+}
+
+func (g *carno) generateServerPackage(pkg string, services ...string) {
+	camelCasePkgName := generator.CamelCase(strings.Replace(pkg, ".", "_", -1))
+	g.P("type ", camelCasePkgName, " struct{")
+	for _, service := range services {
+		g.P(generator.CamelCase(service), "Client")
+	}
+	g.P("}")
+	g.P("")
+
+	g.P("func New", camelCasePkgName, "(opts ...client.Option) (*", camelCasePkgName, ",error){")
+	g.P(`	c,err := carno.NewClient(`, strconv.Quote(pkg), `,opts...)`)
+	g.P("if err!=nil{")
+	g.P("return nil,err")
+	g.P("}")
+
+	g.P("if err:=c.Start();err!=nil{")
+	g.P("return nil,err")
+	g.P("}")
+
+	g.P("return &", camelCasePkgName, "{")
+	for _, service := range services {
+		g.P(generator.CamelCase(service), "Client: &", unexport(service), "Client{Client:c},")
+	}
+	g.P("},nil")
+	g.P("}")
+	g.P("")
 }
