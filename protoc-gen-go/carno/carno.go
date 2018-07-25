@@ -41,6 +41,7 @@ import (
 
 	pb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/ccsnake/protobuf/protoc-gen-go/generator"
+	"sync"
 )
 
 // generatedCodeVersion indicates a version of the generated code.
@@ -56,12 +57,12 @@ func init() {
 // carno is an implementation of the Go protocol buffer compiler's
 // plugin architecture.  It generates bindings for carno support.
 type carno struct {
-	gen *generator.Generator
+	gen           *generator.Generator
+	serverBuilder func()
 }
 
 func newCarno() *carno {
-	return &carno{
-	}
+	return &carno{}
 }
 
 // Name returns the name of this plugin, "carno".
@@ -80,8 +81,14 @@ func (g *carno) Init(gen *generator.Generator) {
 		}
 	}
 
-	for pkg, services := range pkgService {
-		g.generateServerPackage(pkg, services...)
+	var once sync.Once
+
+	g.serverBuilder = func() {
+		once.Do(func() {
+			for pkg, services := range pkgService {
+				g.generateServerPackage(pkg, services...)
+			}
+		})
 	}
 }
 
@@ -113,6 +120,8 @@ func (g *carno) Generate(file *generator.FileDescriptor) {
 	g.P("// This is a compile-time assertion to ensure that this generated file")
 	g.P("// is compatible with the carno package it is being compiled against.")
 	g.P()
+
+	g.serverBuilder()
 
 	for i, service := range file.FileDescriptorProto.Service {
 		g.generateService(file, service, i)
