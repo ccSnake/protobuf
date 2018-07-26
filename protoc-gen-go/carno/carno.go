@@ -87,9 +87,19 @@ func (g *carno) Init(gen *generator.Generator) {
 		once.Do(func() {
 			for pkg, services := range pkgService {
 				g.generateServerPackage(pkg, services...)
+				g.generateInit(pkg)
 			}
 		})
 	}
+}
+
+func (g *carno) generateInit(pkg string) {
+	pkgQ := strconv.Quote(pkg)
+	g.P("var ServerName = ", pkgQ)
+
+	g.P("func Init(opts ...carno.Option) error{")
+	g.P("return carno.Init(", pkgQ, ", opts...)")
+	g.P("}")
 }
 
 // Given a type name defined in a .proto, return its object.
