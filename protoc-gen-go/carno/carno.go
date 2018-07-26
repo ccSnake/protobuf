@@ -97,7 +97,7 @@ func (g *carno) generateInit(pkg string) {
 	pkgQ := strconv.Quote(pkg)
 	g.P("var ServerName = ", pkgQ)
 
-	g.P("func Init(opts ...carno.Option) error{")
+	g.P("func InitCarno(opts ...carno.Option) error{")
 	g.P("return carno.Init(", pkgQ, ", opts...)")
 	g.P("}")
 }
